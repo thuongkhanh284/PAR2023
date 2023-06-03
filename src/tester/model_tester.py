@@ -29,11 +29,11 @@ class ModelTester(object):
     def run(
             self
         ) -> None:
-        #train_dict = self.report(constants.TRAIN, self.model.train_data_handler)
-        val_dict = self.report(constants.VAL, self.model.val_data_handler)
+        train_mA = self.report(constants.TRAIN, self.model.train_data_handler)
+        val_mA = self.report(constants.VAL, self.model.val_data_handler)
         result = {
-            constants.VAL : val_dict,
-            constants.TRAIN : train_dict,
+            constants.VAL : train_mA,
+            constants.TRAIN : val_mA,
             constants.CHECKPOINT : self.checkpoint,
         }
         utils.write_json(result, utils.join_path((self.report_dir,\
@@ -47,15 +47,15 @@ class ModelTester(object):
         result_df = self.predict(dataset_handler)
         preds = result_df[constants.PREDICT]
         labels = result_df[constants.LABEL.upper()]
-        import ipdb
-        #ipdb.set_trace()
         mA = utils.cal_acc(torch.tensor(preds, device=self.device),\
                                 torch.tensor(labels, device=self.device),\
                                                                 self.device)
-        return {
-            "mA" : mA
-        }
-    
+        mA = mA.cpu().detach().item()
+        preds_file_path = utils.join_path((self.report_dir, phase,\
+                                                        constants.PRED_FILE))
+        utils.write_csv(result_df, preds_file_path)
+        return mA
+
     @torch.no_grad()
     def predict(
             self,
@@ -66,10 +66,9 @@ class ModelTester(object):
             constants.PREDICT       : [],
             constants.LABEL.upper() : []
         }
-        counter = 0
+
         for sample in tqdm(dataset_handler):
             if 'aug' in sample[constants.IMAGE_FILE]:
-                print("I am here")
                 continue
             image_file = sample[constants.IMAGE_FILE]
             file_id = utils.get_path_basename(image_file)
@@ -77,13 +76,10 @@ class ModelTester(object):
             label = sample[constants.LABEL]
             image = image.to(self.device)
             pred = self.model.predict(image)
-            pred = pred.cpu().detach().tolist()
+            pred = pred.cpu().detach().tolist()[0]
             result_df[constants.FILE_ID].append(file_id)
             result_df[constants.PREDICT].append(pred)
             result_df[constants.LABEL.upper()].append(label)
-            if counter == 10:
-                break
-            counter += 1
         result_df = utils.create_df(result_df)
         return result_df
 
@@ -102,6 +98,9 @@ class ModelTester(object):
     def setup(
             self
         ) -> None:
+        utils.mkdir(self.report_dir)
+        utils.mkdir(utils.join_path((self.report_dir, constants.TRAIN)))
+        utils.mkdir(utils.join_path((self.report_dir, constants.VAL)))
         self.model = self.load_checkpoint()
         image_dir = utils.join_path((self.configs.preprocess_dir, constants.VAL))
         self.dataset_handler = DatasetHandler(image_dir)
