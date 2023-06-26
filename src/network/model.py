@@ -8,8 +8,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
 
-import timm
-
 import utils
 
 class Model(nn.Module):
@@ -19,9 +17,19 @@ class Model(nn.Module):
         ) -> None:
         super(Model, self).__init__()
         self.configs = configs
-        self.model = self.define_model(configs.model_name)
-        num_ftrs = self.model.num_features
-        self.fc = nn.Linear(1000, num_ftrs)
+        resnet = models.resnet152(weights=True)
+        num_ftrs = resnet.fc.in_features
+        resnet.fc = nn.Linear(num_ftrs, len(self.configs.num_classes))
+        self.fc = nn.Linear(num_ftrs * 2 * 2, num_ftrs)
+        self.resnet = nn.Sequential(
+            nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False),
+            nn.BatchNorm2d(64),
+            resnet.layer1,
+            resnet.layer2,
+            resnet.layer3,
+            resnet.layer4,
+            nn.AdaptiveAvgPool2d((2, 2)),
+        )
         self.fc1 = nn.Linear(num_ftrs, 12)
         self.fc2 = nn.Linear(num_ftrs, 12)
         self.fc3 = nn.Linear(num_ftrs, 1)
@@ -29,27 +37,21 @@ class Model(nn.Module):
         self.fc5 = nn.Linear(num_ftrs, 1)
         self.relu = nn.ReLU()
 
-    def define_model(
-            self,
-            model_name: str = 'swin_tiny_patch4_window7_224',
-        ) -> nn.Module:
-        model = timm.create_model(model_name, pretrained=True)
-        return model
-
     def forward(
             self, 
             images: torch.Tensor
         ) -> tuple:
-        outputs = self.model(images)
+        images = self.resnet(images)
         
-        outputs = outputs.view(outputs.size(0), -1)
-        outputs = self.fc(outputs)
-        color_top = self.relu(self.fc1(outputs))
-        color_bottom = self.relu(self.fc2(outputs))
+        images = images.view(images.size(0), -1)
         
-        gen = self.relu(self.fc3(outputs))
-        bag = self.relu(self.fc4(outputs))
-        hat = self.relu(self.fc5(outputs))
+        images = self.fc(images)
+        color_top = self.relu(self.fc1(images))
+        color_bottom = self.relu(self.fc2(images))
+        
+        gen = self.relu(self.fc3(images))
+        bag = self.relu(self.fc4(images))
+        hat = self.relu(self.fc5(images))
         
         return color_top, color_bottom, gen, bag, hat
 
