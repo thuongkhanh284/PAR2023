@@ -2,6 +2,7 @@
 @author: Tien Nguyen
 @date  : 2023-05-15
 """
+
 import random
 
 from typing import Union
