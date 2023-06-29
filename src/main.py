@@ -4,8 +4,9 @@
 """
 import argparse
 
+import comet_ml
 import pytorch_lightning as pl
-from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.loggers import CometLogger
 
 import utils
 import constants
@@ -65,8 +66,14 @@ def train(
     configs.device = accelerator
     model = Classifier(configs)
 
-    logger = WandbLogger(project='PAR2023', job_type='train', tags=['RESNET'])
-    trainer = pl.Trainer(max_epochs=configs.epochs, devices=gpu, precision=16,\
+    logger = CometLogger(
+        api_key=configs.comet_api_key,
+        save_dir=configs.log_dir,
+        project_name=configs.comet_project,
+        offline=configs.offline_mode
+    )
+
+    trainer = pl.Trainer(max_epochs=configs.epochs, devices=gpu, precision=32,\
                         accelerator=accelerator,\
                         log_every_n_steps=1,\
                          logger=logger,\
