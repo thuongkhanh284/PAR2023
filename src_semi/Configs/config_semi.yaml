@@ -1,0 +1,10 @@
+training_csv_file: '/homedir06/thtran/research/PAR2023/raw_data/training_set_valid.csv'
+invalid_csv_file: '/homedir06/thtran/research/PAR2023/raw_data/training_set_invalid.csv'
+testing_csv_file: '/homedir06/thtran/research/PAR2023/raw_data/validation_set_valid.csv'
+batch_size: 128
+num_epochs_semi: 5
+num_epochs: 20
+learning_rate: 0.001
+output_model: './Training_Models_Semi'
+stop_train: -1
+
